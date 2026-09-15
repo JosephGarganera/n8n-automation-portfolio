@@ -1,0 +1,247 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d53b1dc0-48c3-471b-9d55-04796913c581",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      name: \"Alice Smith\",\n      email: \"alice@enterprise.com\",\n      company: \"MegaCorp\",\n      companySize: 1200,\n      notes: \"Interested in enterprise dedicated servers.\"\n    }\n  },\n  {\n    json: {\n      name: \"Bob Jones\",\n      email: \"bob@startup.io\",\n      company: \"QuickTech\",\n      companySize: 45,\n      notes: \"Looking for a cheap starter plan.\"\n    }\n  },\n  {\n    json: {\n      name: \"Charlie Brown\",\n      email: \"charlie@smb.net\",\n      company: \"Brown & Sons\",\n      companySize: 12,\n      notes: \"Wants a quick consultation call.\"\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3b8c72fe-2e24-4504-a1af-255a8eb1355e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "148ac12a-68b9-4215-b094-5bb108cdec7c",
+              "name": "=leadTier",
+              "value": "={{ $json.companySize >= 500 ? 'Enterprise' : 'SMB' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "e95084d5-b959-47eb-884c-ed53b2fb3e30",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert sales qualifier. Read the following lead description and classify the user's intent. \nRespond ONLY with one word: either \"High Intent\" or \"Low Intent\". Do not add punctuation, formatting, or conversational text.\n\nLead Notes: {{ $json.notes }}",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        672,
+        0
+      ],
+      "id": "52762628-7912-4ac3-9c91-cff76aa24ac6",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        744,
+        232
+      ],
+      "id": "96ca4e6e-4cf2-4a9b-ac37-c2829feccaf0",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "Ti9Ayzv6FBTmAefV",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Fetch all items arriving from the Basic LLM Chain node\nconst currentItems = $input.all();\n\n// 2. Fetch the historical lead data directly from the Edit Fields node\nconst originalLeads = $( 'Edit Fields' ).all();\n\n// 3. Map through the leads and append the corresponding AI judgment\nreturn originalLeads.map((lead, index) => {\n  return {\n    json: {\n      ...lead.json,\n      // Grabs the text output from the LLM Chain matching this lead's index position\n      aiIntent: currentItems[index]?.json?.text?.trim() || \"Unknown\"\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "56793d18-49ca-413c-bda7-517c005536f8",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.aiIntent }}",
+                    "rightValue": "High Intent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "26e3e29f-cf42-457a-91c8-b12b58dd41a8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "High Intent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f161d4b5-3b31-45a8-a238-bdf3d9dc6948",
+                    "leftValue": "={{ $json.aiIntent }}",
+                    "rightValue": "Low Intent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Low Intent"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "1ae6b22f-fe84-4f31-88e1-90dfb75d4990",
+      "name": "Switch"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "94b60dcd81d4264fb649de58efc6facc3f1d657d9521f3dc5d4e5c30f82f1c0c"
+  }
+}
